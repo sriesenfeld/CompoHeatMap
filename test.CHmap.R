@@ -1,8 +1,7 @@
 #!/usr/bin/Rscript
 ### SJ Riesenfeld
 ## Tests/demos the code in vis.hmap.plus.20150129.R"
-source("/ahg/regevdata/users/riesen/Rscripts/vis.hmap.plus.20150129.R")
-# source("/ahg/regevdata/users/riesen/CyTOF/Analyses/R_code_2014/utils/hmap.cytof.20150130.R")
+source("compoHeatMap.R")
 
 out.dir = "test.hmaps.outdir"
 dir.create(out.dir)
