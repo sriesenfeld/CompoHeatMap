@@ -1,6 +1,6 @@
 #!/usr/bin/Rscript
 ### SJ Riesenfeld
-## Tests/demos the code in vis.hmap.plus.20150129.R"
+## Tests/demos the code in compoHeatMap.R
 source("compoHeatMap.R")
 
 out.dir = "test.hmaps.outdir"
