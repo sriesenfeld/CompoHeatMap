@@ -3,7 +3,7 @@
 ## Tests/demos the code in compoHeatMap.R
 source("compoHeatMap.R")
 
-out.dir = "test.hmaps.outdir"
+out.dir = "tests.outdir"
 dir.create(out.dir)
 
 ## Define the colors corresponding to the cell types (or other types)
@@ -47,7 +47,7 @@ p.complete.l=create.gg.hmap.w.barps(hmap.dat=test.m,
     colorstack.dat.l=list(row.conditions, row.samples),
     colorstack.fill.l=list(ct.colors, sample.colors),
     widths=c(3,1,1,15), plot.title="Testing complete plot construction in 1 command",
-    print.plot=TRUE,
+    print.plot=FALSE,
     ## heatmap-specific arguments follow
     dend.c.ord=ncol(test.m):1,
     cut.frac.c.h=0.9,
@@ -59,8 +59,7 @@ pdf(paste0(out.dir, "/out.test.complete.build.pdf"), w=7,h=8)
 print(p.complete.l$p.compo)
 dev.off()
 
-
-## NOW TEST EACH PLOT PIECE SEPARATELY
+## NOW TEST BUILDING EACH PLOT PIECE SEPARATELY
 
 ## Build and plot dendrograms from test.m with gg.dendro()
 pdf(paste0(out.dir, "/out.test.gg.dendro.pdf"))
@@ -98,20 +97,16 @@ print(p.hm+ggtitle("Heatmap with skewed colors"))
 p.hm=gg.hmap(dat=test.m[gg.dendro.l$ord, ], fix.ord=TRUE, no.x.labels=FALSE, no.y.labels=FALSE,
     r.splits=spl.v, c.splits=cl.v, cap=c(1,10), leg.title="Intensity")
 print(p.hm+ggtitle("Heatmap with values capped"))
-trash=dev.off()
-
 ## In one command, make a nice heatmap as above, but with default
 ## ordering of columns reversed (i.e., that ordering is used whenever
 ## the clustering does not completely determine the column order).
 p.hm.l=gg.hmap.via.dendro(dat=test.m, dend.c.ord=ncol(test.m):1, cut.frac.c.h=0.9,
     norm.rows=TRUE, hmap.col=get.hmap.col(range.val=range(test.m), mid.val=5), leg.title="Intensity")
-pdf(paste0(out.dir, "/out.test.hmap.via.dendr.pdf"), w=5, h=7)
-print(p.hm.l$gg.hm + ggtitle("Heatmap, skewed colors,\ndefault reverse order for columns"))
+print(p.hm.l$gg.hm + ggtitle("Heatmap in 1 cmd, skewed colors,\ndefault reverse order for columns"))
 ## print the unlabeled dendrograms as well, just to see them
 print(p.hm.l$gg.dend.r + ggtitle("Row dendrogram (no labels)"))
 print(p.hm.l$gg.dend.c + ggtitle("Column dendrogram (no labels)"))
 trash=dev.off()
-
 ## Test doing the hierarchical clustering separately (could use this
 ## approach to do the clustering differently from default, but here we
 ## are just testing that we get the same overall output) and then
@@ -124,7 +119,6 @@ hc.cols=get.hc(dat=t(test.m), dend.ord=ncol(test.m):1)
 p.hm.l=gg.hmap.via.dendro(dat=test.m, hc.r=hc.rows, hc.c=hc.cols, cut.frac.c.h=0.9,
     r.d.labels=TRUE, c.d.labels=TRUE, leg.title="Intensity",
     hmap.col=get.hmap.col(range.val=range(test.m), mid.val=5))
-pdf(paste0(out.dir, "/out.test.hmap.via.sep.hc.pdf"), w=5, h=7)
 print(p.hm.l$gg.hm + ggtitle("Same heatmap,\nrow/col clustering done separately"))
 print(p.hm.l$gg.dend.r + ggtitle ("Row dendrogram"))
 print(p.hm.l$gg.dend.c + ggtitle ("Column dendrogram"))
@@ -132,21 +126,11 @@ trash=dev.off()
 
 ## Test cluster size bar plot alone
 p.barp=gg.barp(clu.sz[p.hm.l$ord.r], y.axis.lab="Cluster Size", x.labs.only=TRUE)
-pdf(paste0(out.dir, "/out.test.bar.clu.sz.pdf"), w=5, h=7)
+pdf(paste0(out.dir, "/out.test.bars.colorstacks.pdf"), w=5, h=7)
 print(p.barp + ggtitle("Testing bar plot"))
-trash=dev.off()
-
-## Test plotting cluster size bar plot with heatmap
-p.hm.barp=compose.gg.hmap.w.barps(p.hm.l$gg.hm, p.barp, # out.f=out.f, w=7, h=7,
-    plot.title="Heatmap plus bar plot", leg.top=TRUE)
-pdf(paste0(out.dir, "/out.test.hmap.w.bar.clu.sz.pdf"))
-print(p.hm.barp)
-dev.off()
-
 ## Test plotting just the colorstacks for condition and batch
 p.cond=gg.colorstack(row.conditions[p.hm.l$ord.r], cols=ct.colors,blank=T, leg.title="Condition")
 p.samp=gg.colorstack(row.samples[p.hm.l$ord.r], cols=sample.colors, blank=T, leg.title="Date")
-pdf(paste0(out.dir, "/out.test.colorstacks.pdf"), w=5, h=7)
 print(p.cond+ggtitle("Testing condition colorstack"))
 print(p.samp+ggtitle("Testing batch colorstack"))
 trash=dev.off()
@@ -156,8 +140,11 @@ p.compose.all=compose.gg.hmap.w.barps(p.hm.l$gg.hm, p.barp, gg.colorstack.l=list
     widths=c(3,1,1,15), plot.title="Testing composing all plot components")
 p.compose.colorstacks=compose.gg.hmap.w.barps(p.hm.l$gg.hm, gg.barp=NULL, gg.colorstack.l=list(p.cond, p.samp),
     widths=c(1,1,15), plot.title="Testing composing heatmap and colorstacks")
-pdf(paste0(out.dir, "/out.test.hmap.w.bars.colorstacks.pdf"))
+p.hm.barp=compose.gg.hmap.w.barps(p.hm.l$gg.hm, p.barp,
+    plot.title="Testing composing heatmap and bar plot", leg.top=TRUE)
+pdf(paste0(out.dir, "/out.test.hmap.compos.w.bars.colorstacks.pdf"))
 print(p.compose.all)
+print(p.hm.barp)
 print(p.compose.colorstacks)
 dev.off()
 
