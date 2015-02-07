@@ -10,11 +10,11 @@ by adding additional ggplot2 functions.
 
 (2) Rows and columns in the heatmap can be split visually by line
 segments by specifying a fractional height at which to cut the
-dendrograms clustering them. Clustering can be done in a single
-command or separately.
+dendrograms clustering them. Clustering can be done in the same
+command with creating the plot, or separately.
 
-(3) Complex composed plots with many types of marginal information
-(e.g., sample origin, size, etc) can be represented with bar plots
+(3) Able to create complex composed plots with many types of marginal
+information (e.g., sample origin, size, etc) represented by bar plots
 that align correctly with the rows of the heatmap.
 
 Code:
