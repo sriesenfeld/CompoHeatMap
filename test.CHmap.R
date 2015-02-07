@@ -76,8 +76,6 @@ print(gg.dendro.l$gg.p+ggtitle("Row Dendrogram from Normalized Rows"))
 ## test column dendrogram
 gg.dendro.col.l=gg.dendro(dat=t(test.m), no.labels=FALSE)
 print(gg.dendro.col.l$gg.p + ggtitle("Basic column dendrogram"))
-gg.dendro.col.l=gg.dendro(dat=t(test.m), no.labels=FALSE)
-print(gg.dendro.col.l$gg.p + ggtitle("Column dendrogram"))
 trash=dev.off()
 
 ## Test heatmaps with rows split by cutting row dendrogram at 50% of
