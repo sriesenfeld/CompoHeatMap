@@ -557,12 +557,18 @@ compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
             heights=c(0,heights)
         }
     }
+    ## Creating empty ggplot with annotation is an alternative to
+    ## calling textGrob below -- tried it to avoid querying graphical
+    ## parameters and hence creating empty Rplots.pdf file, but one is
+    ## still created. May be due to arrangeGrob().
+    ### p.title=ggplot(data.frame()) + annotate("text", label=plot.title, x=0.5, y=0.5) + theme_dendro()
+    ### titleGrob=ggplotGrob(ggspace(p.title))
     if (leg.top) {
-        p=arrangeGrob(textGrob(plot.title, gp=gpar(cex=1.25), just="center"),
+        p=arrangeGrob(textGrob(plot.title, just="center", gp=gpar(cex=1.25)),
             grobs.legs, grobs.plots,
             nrow=3, heights=unit(heights, "null"))
     } else {
-        p=arrangeGrob(textGrob(plot.title, gp=gpar(cex=1.25), just="center"),
+        p=arrangeGrob(textGrob(plot.title, just="center", gp=gpar(cex=1.25)),
             grobs.plots, grobs.legs,
             nrow=3, heights = unit(c(heights[1], rev(heights[2:length(heights)])), "null"))
     }

@@ -47,22 +47,22 @@ p.complete.l=create.gg.hmap.w.barps(hmap.dat=test.m,
     colorstack.dat.l=list(row.conditions, row.samples),
     colorstack.fill.l=list(ct.colors, sample.colors),
     widths=c(3,1,1,15), plot.title="Testing complete plot construction in 1 command",
+    leg.title.l=c("Condition", "Date"),
     print.plot=FALSE,
     ## heatmap-specific arguments follow
     dend.c.ord=ncol(test.m):1,
     cut.frac.c.h=0.9,
     hmap.col=get.hmap.col(range.val=range(test.m), mid.val=5),
-    leg.title.l=c("Condition", "Date"),
     leg.title="Intensity",
     norm.rows=TRUE)
-pdf(paste0(out.dir, "/out.test.complete.build.pdf"), w=7,h=8)
+pdf(paste0(out.dir, "/out.test1.main.pdf"), w=7,h=8)
 print(p.complete.l$p.compo)
 dev.off()
 
 ## NOW TEST BUILDING EACH PLOT PIECE SEPARATELY
 
 ## Build and plot dendrograms from test.m with gg.dendro()
-pdf(paste0(out.dir, "/out.test.gg.dendro.pdf"))
+pdf(paste0(out.dir, "/out.test2.gg.dendro.pdf"))
 gg.dendro.l=gg.dendro(dat=test.m, p=5, no.labels=FALSE)
 print(gg.dendro.l$gg.p+ggtitle("Row Dendrogram (p=5)"))
 ## test keeping reverse of ordering of rows as much as possible
@@ -85,7 +85,7 @@ trash=dev.off()
 ## height; also test various coloring strategies.
 spl.v=get.splits(gg.dendro.l$dend, 0.5)
 cl.v=get.splits(gg.dendro.col.l$dend, 0.9)
-pdf(paste0(out.dir,"/out.test.hmap.splits.colors.pdf"), w=5, h=7)
+pdf(paste0(out.dir,"/out.test3.hmap.splits.colors.pdf"), w=5, h=7)
 p.hm=gg.hmap(dat=test.m[gg.dendro.l$ord, ], fix.ord=TRUE, no.x.labels=FALSE, no.y.labels=FALSE,
     r.splits=spl.v, c.splits=cl.v, leg.title="Intensity")
 print(p.hm+ggtitle("Heatmap with row and column splits"))
@@ -126,7 +126,7 @@ trash=dev.off()
 
 ## Test cluster size bar plot alone
 p.barp=gg.barp(clu.sz[p.hm.l$ord.r], y.axis.lab="Cluster Size", x.labs.only=TRUE)
-pdf(paste0(out.dir, "/out.test.bars.colorstacks.pdf"), w=5, h=7)
+pdf(paste0(out.dir, "/out.test4.bars.colorstacks.pdf"), w=5, h=7)
 print(p.barp + ggtitle("Testing bar plot"))
 ## Test plotting just the colorstacks for condition and batch
 p.cond=gg.colorstack(row.conditions[p.hm.l$ord.r], cols=ct.colors,blank=T, leg.title="Condition")
@@ -142,7 +142,7 @@ p.compose.colorstacks=compose.gg.hmap.w.barps(p.hm.l$gg.hm, gg.barp=NULL, gg.col
     widths=c(1,1,15), plot.title="Testing composing heatmap and colorstacks")
 p.hm.barp=compose.gg.hmap.w.barps(p.hm.l$gg.hm, p.barp,
     plot.title="Testing composing heatmap and bar plot", leg.top=TRUE)
-pdf(paste0(out.dir, "/out.test.hmap.compos.w.bars.colorstacks.pdf"))
+pdf(paste0(out.dir, "/out.test5.hmap.compos.w.bars.colorstacks.pdf"))
 print(p.compose.all)
 print(p.hm.barp)
 print(p.compose.colorstacks)
