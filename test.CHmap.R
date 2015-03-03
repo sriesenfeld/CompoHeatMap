@@ -123,12 +123,12 @@ print(p.hm.l$gg.dend.c + ggtitle ("Column dendrogram"))
 trash=dev.off()
 
 ## Test cluster size bar plot alone
-p.barp=gg.barp(clu.sz[p.hm.l$ord.r], y.axis.lab="Cluster Size", x.labs.only=TRUE)
+p.barp=gg.barp(clu.sz[p.hm.l$ord.r], y.axis.lab="Cluster Size", x.labs.only=TRUE, splits=p.hm.l$r.splits)
 pdf(paste0(out.dir, "/out.test4.bars.colorstacks.pdf"), w=5, h=7)
 print(p.barp + ggtitle("Testing bar plot"))
-## Test plotting just the colorstacks for condition and batch
-p.cond=gg.colorstack(row.conditions[p.hm.l$ord.r], cols=ct.colors,blank=T, leg.title="Condition")
-p.samp=gg.colorstack(row.samples[p.hm.l$ord.r], cols=sample.colors, blank=T, leg.title="Date")
+## Test plotting just the colorstacks for condition and batch, with the splits added
+p.cond=gg.colorstack(row.conditions[p.hm.l$ord.r], cols=ct.colors,blank=T, leg.title="Condition", splits=p.hm.l$r.splits)
+p.samp=gg.colorstack(row.samples[p.hm.l$ord.r], cols=sample.colors, blank=T, leg.title="Date", splits=p.hm.l$r.splits)
 print(p.cond+ggtitle("Testing condition colorstack"))
 print(p.samp+ggtitle("Testing batch colorstack"))
 trash=dev.off()

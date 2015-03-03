@@ -128,6 +128,7 @@ gg.hmap <- function(dat, cap=NULL,
                     fix.ord=TRUE,
                     leg.title="", split.l.size=1, splits.col="black",
                     base.size=14, axis.text.size=14,
+                    na.color="gray75",
                     no.x.labels=FALSE, no.y.labels=FALSE
                     ) {
     if (is.null(cap)) {
@@ -141,7 +142,7 @@ gg.hmap <- function(dat, cap=NULL,
     }
     p = ggplot(dat.df, aes(x=Gene, y=ID)) +
         geom_tile(aes(fill = Value), colour = "lightgray") +
-            scale_fill_gradientn(colours=hmap.col, limits=cap, oob=squish,
+            scale_fill_gradientn(colours=hmap.col, limits=cap, oob=squish, na.value=na.color,
                                  guide=guide_colorbar(title=leg.title, direction="horizontal",
                                      title.position="top", barwidth=8))
     if (! is.null(r.splits)) {
@@ -154,20 +155,22 @@ gg.hmap <- function(dat, cap=NULL,
     }
     p = p + theme_gray(base_size=base.size)
     p = p + theme_dendro()
-    ## NOTE: theme_dendro() sets most ggplot theme options to blank, i.e. blank theme elements for panel grid, panel background, axis title, axis text, axis line and axis ticks.
+    ## NOTE: theme_dendro() sets most ggplot theme options to blank,
+    ## i.e. blank theme elements for panel grid, panel background,
+    ## axis title, axis text, axis line and axis ticks.
     p = p + scale_x_discrete(expand = c(0, 0)) + scale_y_discrete(expand = c(0, 0))
     if (!no.x.labels) {
         if (!no.y.labels) {
             p =  p + theme(axis.text=element_text(colour="#696969"),
                 axis.text.x = element_text(angle=90, hjust = 1, vjust=0.5, size=axis.text.size),
-                axis.text.y = element_text(size=axis.text.size))
+                axis.text.y = element_text(size=axis.text.size, hjust=1))
         } else {
             p =  p + theme(axis.text=element_text(colour="#696969"),
                 axis.text.x = element_text(angle=90, hjust = 1, vjust=0.5, size=axis.text.size))
         }
     } else if (! no.y.labels) {
         p =  p + theme(axis.text=element_text(colour="#696969"),
-            axis.text.y = element_text(size=axis.text.size))
+            axis.text.y = element_text(size=axis.text.size, hjust=1))
     }
     p=p + theme(legend.position="bottom")
     return(p)
@@ -266,6 +269,12 @@ theme.only.x <- function(default.theme=theme_bw()) {
                                  panel.grid=element_blank(), panel.background=element_blank()))
 
 }
+## Change a given ggplot2 theme so that the x-axis elements are blank.
+theme.only.y <- function(default.theme=theme_bw()) {
+    return(default.theme + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.line.x=element_blank(),
+                                 panel.grid=element_blank(), panel.background=element_blank()))
+
+}
 
 
 ## Makes a ggplot heatmap after ordering the rows and columns by
@@ -293,11 +302,11 @@ theme.only.x <- function(default.theme=theme_bw()) {
 ### only for computing row/column dendrogram.
 ## ...: Unspecified arguments are passed to gg.hmap().
 ### RETURNS:
-## a list of 5 components: "gg.hm": ggplot2 plot object of a heatmap;
-## "gg.dend.r": NULL or ggplot2 plot object of dendrogram computed on
-## the rows, "gg.dend.c": NULL or ggplot2 plot object of dendrogram
-## computed on the columns; "ord.r"=order of rows in heatmap;
-## "ord.c"=order of columns in heatmap.
+## a list of 7 components: "gg.hm": ggplot2 plot object of a heatmap;
+## "gg.dend.r"/"gg.dend.c": NULL or ggplot2 plot object of dendrogram
+## computed on the rows/columns; "ord.r"=order of rows in heatmap;
+## "ord.c"=order of columns in heatmap; "r.splits"/"c.splits":
+## NULL or vector describing where rows/columns are split by lines.
 gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
                                dend.r=TRUE, dend.c=TRUE,
                                dend.r.ord=NULL, dend.c.ord=NULL,
@@ -349,6 +358,8 @@ gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
     } else {
         p.hm=gg.hmap(dat, fix.ord=TRUE, no.x.labels=FALSE, no.y.labels=FALSE,...)
     }
+    ret.l$r.splits=r.splits.v
+    ret.l$c.splits=c.splits.v
     ret.l$gg.hm=p.hm
     return(ret.l)
 }
@@ -371,15 +382,23 @@ gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
 ### leg.title: title of the legend.
 ## y.axis.lab: title of y axis.
 ### blank: Boolean T/F; if T, use theme_dendro() to make many plot
-### elements blank (ignored if x.labs.only==TRUE).
-## x.labs.only: Boolean T/F; if T, keep only the x-axis labels.
+### elements blank (ignored if x.labs.only==TRUE or if
+### y.labs.only==TRUE).
+## x.labs.only/y.labs.only: Boolean T/F; if T, keep only the
+## x-axis/y-axis tick labels.
 ### base.size: base font size to use in theme.
-## RETURNS:
-### a ggplot2 plot object.
+## splits: NULL or integer vector specifying where lines dividing bars
+## should be drawn (indexing rows/columns from bottom/left).
+### split.l.size: width of lines used for splitting rows/columns.
+## splits.col: the color for the split lines.
+### RETURNS:
+## a ggplot2 plot object.
 gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
                     fill.c=NULL, cols=NULL, default.fill="#888888",
                     leg.title="", y.axis.lab="", ## e.g., "size" or "condition"
-                    blank=FALSE, x.labs.only=TRUE, base.size=14) {
+                    blank=FALSE, x.labs.only=TRUE, y.labs.only=FALSE,
+                    base.size=14,
+                    splits=NULL, split.l.size=1, splits.col="black") {
     if (fix.ord) {
         id=factor(names(v), levels=names(v))
     } else {
@@ -398,6 +417,15 @@ gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
         p = ggplot(df, aes(x=ID, y=Value)) +
             geom_bar(stat="identity", width=0.99, fill=default.fill)
     }
+    if (! is.null(splits)) {
+        if (!rev) {
+            ymax=max(v)
+        } else {
+            ymax=-max(v)
+        }
+         p = p + geom_segment(data=data.frame("splits"=splits), size=split.l.size, colour=splits.col,
+             y=0, yend=ymax, aes(x=splits+0.5, xend=splits+0.5))
+    }
     p = p +ylab(y.axis.lab)
     p = p + scale_x_discrete(expand=c(0,0))
     p = p +  theme_grey(base_size = base.size)
@@ -412,6 +440,8 @@ gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
     }
     if (x.labs.only) {
         p = p+theme.only.x(theme_grey(base_size=base.size)) + geom_vline(xintercept=0.5, linetype="dashed")
+    } else if (y.labs.only) {
+        p = p+theme.only.y(theme_grey(base_size=base.size)) #+ geom_hline(yintercept=0, linetype="dashed")
     } else if (blank) {
         p = p+theme_dendro()
     }
@@ -426,10 +456,10 @@ gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
 ## meaningful. Creates a ggplot2 bar plot object where all bars are
 ## the same height (called here a "colorstack"). See gg.barp() specs
 ## for details.
-gg.colorstack <- function(fill.c,rev=FALSE,x.labs.only=FALSE, blank=TRUE,...) {
+gg.colorstack <- function(fill.c,rev=FALSE, x.labs.only=FALSE, y.labs.only=FALSE, blank=TRUE,...) {
     v=rep(1, length(fill.c))
     names(v)=names(fill.c)
-    p=gg.barp(v, fill.c=fill.c, rev=rev, x.labs.only=x.labs.only, blank=blank,...)
+    p=gg.barp(v, fill.c=fill.c, rev=rev, blank=blank, x.labs.only=x.labs.only, y.labs.only=y.labs.only,...)
     p=p+theme(legend.position="bottom")
     return(p)
 }
@@ -598,25 +628,31 @@ compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
 ## for the legends versus the plots.
 ### plot.title: title for composed plot.
 ## leg.top: Boolean T/F; if T, put legend on top; else on bottom.
-### print.plot: Boolean T/F; if T, composed plot is printed as a side
-### effect.
-## ...: Unspecified arguments are passed, along with hmap.dat, to
-## gg.hmap.via.dendro().
-### RETURNS:
-## list with 4 named components: "p.compo", the ggplot object of the
-## composed plot, "p.hm.l", containing the list returned by
-## gg.hmap.via.dendro(); "p.barp", a ggplot object returned by
-## gg.barp(); and "p.colorstack.l", the list of ggplot objects
-## creacted by all calls to gg.colorstack().
+### y.labs.only: Boolean T/F; if T, keep the y-axis tick labels for
+### the colorstack plots.
+## split.l.size: width of lines used for splitting rows/columns.
+### splits.col: the color for the row/col split lines.
+## print.plot: Boolean T/F; if T, composed plot is printed as a side
+## effect.
+### ...: Unspecified arguments are passed, along with hmap.dat, to
+### gg.hmap.via.dendro().
+## RETURNS:
+### list with 4 named components: "p.compo", the ggplot object of the
+### composed plot, "p.hm.l", containing the list returned by
+### gg.hmap.via.dendro(); "p.barp", a ggplot object returned by
+### gg.barp(); and "p.colorstack.l", the list of ggplot objects
+### creacted by all calls to gg.colorstack().
 create.gg.hmap.w.barps <- function(hmap.dat, barp.dat.v,
                                    colorstack.dat.l=NULL, colorstack.fill.l=NULL,
                                    leg.title.l=NULL,
                                    widths=c(2,10), heights=c(1,10),
                                    plot.title="", leg.top=FALSE,
-                                   print.plot=FALSE,...) {
+                                   y.labs.only=FALSE,
+                                   splits.col="black",split.l.size=1,
+                                   print.plot=FALSE, ...) {
     p.hm.l=gg.hmap.via.dendro(dat=hmap.dat, ...)
     if (!is.null(barp.dat.v)) {
-        p.barp=gg.barp(barp.dat.v[p.hm.l$ord.r], x.labs.only=TRUE)
+        p.barp=gg.barp(barp.dat.v[p.hm.l$ord.r], x.labs.only=TRUE, splits=p.hm.l$r.splits, splits.col=splits.col, split.l.size=split.l.size)
     } else {
         p.barp=NULL
     }
@@ -625,7 +661,8 @@ create.gg.hmap.w.barps <- function(hmap.dat, barp.dat.v,
         p.colorstack.l=list()
         for (i in 1:length(colorstack.dat.l)) {
             p.colorstack.l[[i]]=gg.colorstack(colorstack.dat.l[[i]][p.hm.l$ord.r],
-                              cols=colorstack.fill.l[[i]], blank=T, leg.title=leg.title.l[[i]])
+                              cols=colorstack.fill.l[[i]], y.labs.only=y.labs.only, leg.title=leg.title.l[[i]],
+                              splits=p.hm.l$r.splits, splits.col=splits.col, split.l.size=split.l.size)
         }
     }
     p.compo=compose.gg.hmap.w.barps(p.hm.l$gg.hm, p.barp, gg.colorstack.l=p.colorstack.l,
