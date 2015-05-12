@@ -30,3 +30,20 @@ run using Rscript (i.e., outside the interpreter). This is a known
 issue associated with ggplot2. If I can resolve it, I will update
 here.
 
+====================
+Update: 2015 May 12:
+
+Features added:
+
+It is now possible to map continuous data to a colorstack, rather than
+just a bar plot, and to map discrete data to the heatmap. See new
+examples in the tests.outdir plots directroy, e.g., plots in the file
+"out.test2.main.pdf", and in the example code in test.CHmap.R.
+
+Added plot footnoting capability.
+
+Added better control of the font size for the tick labels and
+coordinated it between the heatmap and accompanying plots.
+
+Added possibility of vertical legends.
+

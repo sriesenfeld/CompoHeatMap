@@ -3,6 +3,12 @@
 ## Functions for implementing better heatmaps that are composed with
 ## row-aligned bar plots. In particular, see create.gg.hmap.w.barps().
 
+## GIT UPDATE COMPOHEATMAP.
+
+## ADD FUNCTIONALITY TO BE ABLE TO BIND COLORSTACKS HORIZONTALLY, OR
+## NOTE WHY THIS DOESN'T WORK (I MAY HAVE TRIED AND FAILED IN THE
+## PAST).
+
 library("ggplot2")
 library("reshape2") # for melt
 library("gridExtra")
@@ -104,33 +110,47 @@ get.hmap.col <- function(steps=c("blue", "cyan", "yellow", "red"), n.steps.betwe
 ### ARGS:
 ## dat: numeric matrix to be heatmapped, with named rows and columns
 ## (no adjustments to the data are done here except capping).
-### cap: numeric vector of two values for capping plotted values.
-## hmap.col: vector of colors to use for the heatmap.
-### r.splits/c.splits: NULL or integer vector specifying where
-### lines dividing rows/columns should be drawn (indexing rows/columns
-### from bottom/left).
-## fix.ord: Boolean, whether or not to fix the row and column order as
-## provided in the matrix; otherwise, ggplot may reorder.
-### leg.title: string giving name of legend (e.g., values
-### being plotted).
-## base.size: base font size to use in theme.
-### axist.text.size: the base font size for the axis
-### labels.
-## split.l.size: width of lines used for splitting rows/columns.
-## splits.col: the color for the row/col split
-## lines.
+### cap: numeric vector of two values for limits of plotted values.
+## hmap.col: vector of colors to use for the heatmap; must set to NULL
+## if a discrete scale should be selected by ggplot2 (in which case
+## "discrete" should also be set to TRUE).
+### discrete: Boolean T/F, whether or not heatmap data is discrete; if
+### fill colors are to be selected by ggplot2, set hmap.col=NULL.
+## leg.labels: NULL or character vector of labels for discrete color
+## guide; ignored unless discrete==TRUE.
+### leg.labels: NULL or vector of values giving order for discrete color
+### guide; ignored unless discrete==TRUE.
+## r.splits/c.splits: NULL or integer vector specifying where lines
+## dividing rows/columns should be drawn (indexing rows/columns from
+## bottom/left).
+### fix.ord: Boolean, whether or not to fix the row and column order as
+### provided in the matrix; otherwise, ggplot may reorder.
+## leg.title: string giving name of legend (e.g., values being
+## plotted).
+### base.size: base font size to use in theme.
+## axis.text.size: the base font size for the axis labels.
+### split.l.size: width of lines used for splitting rows/columns.
+## splits.col: the color for the row/col split lines.
 ### no.x.labels/no.y.labels: Boolean T/F, whether or not to show the
 ### x-axis/y-axis labels.
-## RETURNS: a ggplot2 plot object of a heatmap.
+## leg.direction: "vertical" or "horizontal"; direction of legend
+### RETURNS:
+## a ggplot2 plot object of a heatmap.
 gg.hmap <- function(dat, cap=NULL,
-                    hmap.col=get.hmap.col(),
+                    hmap.col=get.hmap.col(), discrete=FALSE,
+                    leg.labels=NULL, leg.breaks=NULL,
                     r.splits=NULL, c.splits=NULL,
                     fix.ord=TRUE,
                     leg.title="", split.l.size=1, splits.col="black",
                     base.size=14, axis.text.size=14,
                     na.color="gray75",
-                    no.x.labels=FALSE, no.y.labels=FALSE
-                    ) {
+                    no.x.labels=FALSE, no.y.labels=FALSE, leg.direction="horizontal") {
+    barwidth=8
+    barheight=NULL
+    if (leg.direction=="vertical") {
+        barwidth=NULL
+        barheight=6
+    }
     if (is.null(cap)) {
         cap=c(min(dat, na.rm=TRUE), max(dat, na.rm=TRUE))
     }
@@ -140,11 +160,33 @@ gg.hmap <- function(dat, cap=NULL,
         dat.df$ID=factor(dat.df$ID, levels=rownames(dat))
         dat.df$Gene=factor(dat.df$Gene, levels=colnames(dat))
     }
-    p = ggplot(dat.df, aes(x=Gene, y=ID)) +
-        geom_tile(aes(fill = Value), colour = "lightgray") +
-            scale_fill_gradientn(colours=hmap.col, limits=cap, oob=squish, na.value=na.color,
-                                 guide=guide_colorbar(title=leg.title, direction="horizontal",
-                                     title.position="top", barwidth=8))
+    if (!discrete) {
+        p = ggplot(dat.df, aes(x=Gene, y=ID)) +
+            ## geom_tile(aes(fill = Value), colour = "lightgray") + ## getting rid of "colour" doesn't remove the lines
+            geom_tile(aes(color=Value), fill=NA) + geom_tile(aes(fill=Value), color=NA) + ## to get ride of lines, need to plot both color and fill
+                scale_fill_gradientn(colours=hmap.col, limits=cap, oob=squish, na.value=na.color,
+                                     guide=guide_colorbar(title=leg.title, direction=leg.direction, title.position="top", barwidth=barwidth, barheight=barheight)) +
+                                         scale_colour_gradientn(colours=hmap.col, limits=cap, oob=squish, na.value=na.color,
+                                                                guide=FALSE)
+    } else {
+        if (is.null(leg.labels)) {
+            leg.labels=waiver()
+        }
+        if (is.null(leg.breaks)) {
+            leg.breaks=waiver()
+        }
+        if(!is.factor(dat.df$Value)) {
+            dat.df$Value=factor(dat.df$Value)
+        }
+        p = ggplot(dat.df, aes(x=Gene, y=ID)) +
+            geom_tile(aes(fill = Value)) #, colour = "lightgray")
+        if (!is.null(hmap.col)) {
+            p=p+scale_fill_manual(values=hmap.col, limits=cap, na.value=na.color, labels=leg.labels, breaks=leg.breaks)
+        } else {
+            p=p+scale_fill_discrete(na.value=na.color, labels=leg.labels, breaks=leg.breaks)
+        }
+        p = p + guides(fill=guide_legend(title=leg.title, direction=leg.direction, title.position="top"))
+    }
     if (! is.null(r.splits)) {
         p =p + geom_segment(data=data.frame("splits"=r.splits), size=split.l.size, colour=splits.col,
             x=0.5, xend=ncol(dat)+0.5, aes(y=splits+0.5, yend=splits+0.5))
@@ -192,7 +234,8 @@ gg.hmap <- function(dat, cap=NULL,
 ### dend.ord: NULL or a numeric vector specifying an index ordering of
 ### the rows that should be used as much as possible, while respecting
 ### the dendrogram computed.
-## RETURNS: a hierarchical clustering object.
+## RETURNS: a hierarchical clustering object or NULL if one cannot be
+## computed due to presence of NAs in distances.
 get.hc <- function(dat=NULL, dist.mat=NULL, p=2, asinh.transf=FALSE, norm.rows=FALSE, dend.ord=NULL) {
     if (!is.null(dat)) {
         if (asinh.transf) {
@@ -208,11 +251,15 @@ get.hc <- function(dat=NULL, dist.mat=NULL, p=2, asinh.transf=FALSE, norm.rows=F
         }
         d=as.dist(dist.mat)
     }
-    hc=hclust(d)
-    if (!is.null(dend.ord)) {
-        hc=as.hclust(reorder(as.dendrogram(hc), dend.ord))
+    if (TRUE %in% is.na(d)) {
+        return(NULL)
+    } else {
+        hc=hclust(d)
+        if (!is.null(dend.ord)) {
+            hc=as.hclust(reorder(as.dendrogram(hc), dend.ord))
+        }
+        return(hc)
     }
-    return(hc)
 }
 
 ## Make a ggplot of a dendrogram.
@@ -233,6 +280,9 @@ gg.dendro <- function(hc=NULL, no.labels=FALSE, base.size=14, dat=NULL, ...) {
     if (is.null(hc)) {
         hc=get.hc(dat=dat,...)
     }
+    if (is.null(hc)) {
+        stop("Cannot compute dendrogram due to NAs in distances computed")
+    }
     ddata=dendro_data(hc, type="rectangle")
     p = ggplot(segment(ddata)) +
         geom_segment(aes(x=x, y=y, xend=xend, yend=yend)) +
@@ -250,7 +300,8 @@ gg.dendro <- function(hc=NULL, no.labels=FALSE, base.size=14, dat=NULL, ...) {
 ## created by cutting the dendrogram at a given fractional height.
 ### ARGS:
 ## dend: dendrogram.
-### cut.h: cut height as fraction of height of tree.
+### cut.h: cut height as fraction of height of tree (from the leaves,
+### so smaller fractions tend to give more splits).
 ## RETURNS: a vector of positions for the line segments between leaf
 ## groups split by cut.  The position counts leaves from left to right
 ## on a vertical representation of the dendrogram.
@@ -264,14 +315,15 @@ get.splits <- function(dend, frac.cut.h) {
 }
 
 ## Change a given ggplot2 theme so that the y-axis elements are blank.
-theme.only.x <- function(default.theme=theme_bw()) {
-    return(default.theme + theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank(), axis.line.y=element_blank(),
+theme.only.x <- function(default.theme=theme_bw(), axis.text.size=14) {
+    return(default.theme + theme(axis.text=element_text(colour="#696969", size=axis.text.size),
+                                 axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank(), axis.line.y=element_blank(),
                                  panel.grid=element_blank(), panel.background=element_blank()))
-
 }
 ## Change a given ggplot2 theme so that the x-axis elements are blank.
-theme.only.y <- function(default.theme=theme_bw()) {
-    return(default.theme + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.line.x=element_blank(),
+theme.only.y <- function(default.theme=theme_bw(), axis.text.size=14) {
+    return(default.theme + theme(axis.text=element_text(colour="#696969", size=axis.text.size),
+                                 axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.line.x=element_blank(),
                                  panel.grid=element_blank(), panel.background=element_blank()))
 
 }
@@ -283,31 +335,35 @@ theme.only.y <- function(default.theme=theme_bw()) {
 ## dat: numeric matrix.
 ### hc.r/hc.c: NULL or hclust objects for the rows/columns; if NULL,
 ### one will be computed if dend.r/dend.c==TRUE.
-## dend.r/dend.c: Boolean T/F; if T, compute row/column dendrogram
-## from hc.r/hc.c, if specified, or dat.
-### dend.r.ord/dend.c.ord: NULL or numeric vector of row/column
-### indices specifying order of rows/columns to use as much
-## as possible, while respecting row/column dendrogram computed.
-## cut.frac.r.h/cut.frac.c.h: NULL or real number in [0,1] specifying
-## where the dendrogram should be cut (as a fraction of its height) to
-## create row/column splits.
-### r.d.labels/c.d.labels: Boolean T/F; if T, show leaf labels on
-### row/column dendrograms.
-## dend.base.size: font base size for dendrograms.
-### p: exponent for "minkowski" distance for dendrogram
-### computations.
-## asinh.transf: Boolean T/F; if T, transform data by asinh only for
-## computing the dendrograms.
-### norm.rows/norm.cols: Boolean T/F; if T, normalize rows/columns
-### only for computing row/column dendrogram.
-## ...: Unspecified arguments are passed to gg.hmap().
-### RETURNS:
-## a list of 7 components: "gg.hm": ggplot2 plot object of a heatmap;
-## "gg.dend.r"/"gg.dend.c": NULL or ggplot2 plot object of dendrogram
-## computed on the rows/columns; "ord.r"=order of rows in heatmap;
-## "ord.c"=order of columns in heatmap; "r.splits"/"c.splits":
-## NULL or vector describing where rows/columns are split by lines.
+## r.dist.mat/c.dist.mat: numeric distance matrix for rows/columns of
+## heatmap, as would be computed by dist() from dat; ignored if "dat"
+## is provided.
+### dend.r/dend.c: Boolean T/F; if T, compute row/column dendrogram
+### from hc.r/hc.c, if specified, or dat.
+## dend.r.ord/dend.c.ord: NULL or numeric vector of row/column indices
+## specifying order of rows/columns to use as much as possible, while
+## respecting row/column dendrogram computed.
+### cut.frac.r.h/cut.frac.c.h: NULL or real number in [0,1] specifying
+### where the dendrogram should be cut (as a fraction of its height)
+### to create row/column splits.
+## r.d.labels/c.d.labels: Boolean T/F; if T, show leaf labels on
+## row/column dendrograms.
+### dend.base.size: font base size for dendrograms.
+## p: exponent for "minkowski" distance for dendrogram
+## computations.
+### asinh.transf: Boolean T/F; if T, transform data by asinh only for
+### computing the dendrograms.
+## norm.rows/norm.cols: Boolean T/F; if T, normalize rows/columns
+## only for computing row/column dendrogram.
+### ...: Unspecified arguments are passed to gg.hmap().
+## RETURNS:
+### a list of 7 components: "gg.hm": ggplot2 plot object of a heatmap;
+### "gg.dend.r"/"gg.dend.c": NULL or ggplot2 plot object of dendrogram
+### computed on the rows/columns; "ord.r"=order of rows in heatmap;
+### "ord.c"=order of columns in heatmap; "r.splits"/"c.splits": NULL
+### or vector describing where rows/columns are split by lines.
 gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
+                               r.dist.mat=NULL, c.dist.mat=NULL,
                                dend.r=TRUE, dend.c=TRUE,
                                dend.r.ord=NULL, dend.c.ord=NULL,
                                cut.frac.r.h=0.5, cut.frac.c.h=0.5,
@@ -317,12 +373,12 @@ gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
                                ...) {
     ret.l=list("gg.dend.r"=NULL, "gg.dend.c"=NULL)
     if (dend.r) {
-        if (is.null(hc.r)) {
+        if (is.null(hc.r) && is.null(r.dist.mat)) {
             hc.dat=dat
         } else {
             hc.dat=NULL
         }
-        gg.dendro.r.l=gg.dendro(dat=hc.dat, hc=hc.r, no.labels=!r.d.labels, base.size=dend.base.size,
+        gg.dendro.r.l=gg.dendro(dat=hc.dat, dist.mat=r.dist.mat, hc=hc.r, no.labels=!r.d.labels, base.size=dend.base.size,
             dend.ord=dend.r.ord, p=p, asinh.transf=asinh.transf, norm.rows=norm.rows)
         dat=dat[gg.dendro.r.l$ord, ]
         ret.l$ord.r=gg.dendro.r.l$ord
@@ -331,12 +387,12 @@ gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
         ret.l$ord.r=1:nrow(dat)
     }
     if (dend.c) {
-        if (is.null(hc.c)) {
-            hc.dat=dat
+        if (is.null(hc.c) && is.null(c.dist.mat)) {
+            hc.dat=t(dat)
         } else {
             hc.dat=NULL
         }
-        gg.dendro.c.l=gg.dendro(dat=t(hc.dat), hc=hc.c, no.labels=!c.d.labels, base.size=dend.base.size,
+        gg.dendro.c.l=gg.dendro(dat=hc.dat, dist.mat=c.dist.mat, hc=hc.c, no.labels=!c.d.labels, base.size=dend.base.size,
             dend.ord=dend.c.ord, p=p, asinh.transf=asinh.transf, norm.rows=norm.cols)
         dat=dat[, gg.dendro.c.l$ord]
         ret.l$ord.c=gg.dendro.c.l$ord
@@ -367,70 +423,94 @@ gg.hmap.via.dendro <- function(dat, hc.r=NULL, hc.c=NULL,
 ## Create simple bar ggplot, typically for use with other ggplot
 ## objects.
 ### ARGS:
-## v: named numeric vector.
+## dat.v: named numeric vector.
 ### fix.ord: Boolean T/F; if T, fix the order as in the vector v;
 ### otherwise ggplot may reorder the bars.
 ## flip: Boolean T/F; if T, make a vertical plot; otherwise,
 ## horizontal.
 ### rev: Boolean T/F; if T, reverse the x-axis.
-## fill.c: NULL or vector of the same length as v of values to be
-## mapped to the fill attribute in the barplot.
-### cols: NULL or a vector of colors, named by the unique entries in
-### fill.c, to be used in the mapping of fill.c.
-## default.fill: color to use as fill colour for the bars (if
-## fill.c==NULL).
+## fill.c: NULL or vector of the same length as dat.v of values to be
+## mapped to the fill attribute in the barplot. If fill.c is a factor
+## or discrete, set discrete==TRUE.
+### cols: NULL or a vector of colors, to be used in the mapping of
+### fill.c. If (discrete==TRUE), vector should be named by the unique
+### entries in fill.c. If (fill.c==TRUE and cols==NULL), ggplot2 will
+### select colors.
+## default.fill: color to use as fill colour for the bars (ignored
+## unless fill.c==NULL).
+### discrete: Boolean T/F; if, T use discrete color scale; otherwise,
+### continuous; ignored if fill.c==NULL.
 ### leg.title: title of the legend.
-## y.axis.lab: title of y axis.
-### blank: Boolean T/F; if T, use theme_dendro() to make many plot
-### elements blank (ignored if x.labs.only==TRUE or if
-### y.labs.only==TRUE).
-## x.labs.only/y.labs.only: Boolean T/F; if T, keep only the
-## x-axis/y-axis tick labels.
-### base.size: base font size to use in theme.
+### y.axis.lab: title of y axis.
+## blank: Boolean T/F; if T, use theme_dendro() to make many plot
+## elements blank (ignored if x.labs.only==TRUE or if
+## y.labs.only==TRUE).
+### x.labs.only/y.labs.only: Boolean T/F; if T, keep only the
+### x-axis/y-axis tick labels; y.labs.only is ignored if
+### x.labs.only==TRUE.
+## base.size: base font size to use in theme.
+### axis.text.size: the base font size for the axis labels.
 ## splits: NULL or integer vector specifying where lines dividing bars
 ## should be drawn (indexing rows/columns from bottom/left).
 ### split.l.size: width of lines used for splitting rows/columns.
 ## splits.col: the color for the split lines.
-### RETURNS:
-## a ggplot2 plot object.
-gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
-                    fill.c=NULL, cols=NULL, default.fill="#888888",
+### leg.direction: "vertical" or "horizontal"; direction of legend
+## RETURNS:
+### a ggplot2 plot object.
+gg.barp <- function(dat.v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
+                    fill.c=NULL, cols=NULL, default.fill="#888888", discrete=TRUE,
                     leg.title="", y.axis.lab="", ## e.g., "size" or "condition"
                     blank=FALSE, x.labs.only=TRUE, y.labs.only=FALSE,
-                    base.size=14,
-                    splits=NULL, split.l.size=1, splits.col="black") {
-    if (fix.ord) {
-        id=factor(names(v), levels=names(v))
-    } else {
-        id = factor(names(v))
+                    base.size=14, axis.text.size=14,
+                    splits=NULL, split.l.size=1, splits.col="black", leg.direction="horizontal") {
+    barwidth=8
+    barheight=NULL
+    if (leg.direction=="vertical") {
+        barwidth=NULL
+        barheight=6
     }
-    df=data.frame("ID"=id, "Value"=v)
+    if (fix.ord) {
+        id=factor(names(dat.v), levels=names(dat.v))
+    } else {
+        id = factor(names(dat.v))
+    }
+    df=data.frame("ID"=id, "Value"=dat.v)
     if (!is.null(fill.c)) {
         df=cbind(df, "Type"=fill.c)
         p = ggplot(df, aes(x=ID, y=Value)) +
-            geom_bar(stat="identity", width=0.99, aes(fill=Type))
-        if (!is.null(cols)) {
-            p = p + scale_fill_manual(values=cols,
-                guide=guide_legend(title=leg.title, direction="horizontal", title.position="top"))
+            geom_bar(stat="identity", width=1, aes(fill=Type))
+        if (discrete) {
+            if (is.null(cols)) {
+                p = p + scale_fill_discrete()
+            } else {
+                p = p + scale_fill_manual(values=cols)
+            }
+            p = p + guides(fill=guide_legend(title=leg.title, direction=leg.direction, title.position="top"))
+        } else {
+            if (!is.null(cols)) {
+                p = p + scale_fill_gradientn(colours=cols)
+            }
+
+            p = p + guides(fill=guide_colorbar(title=leg.title, direction=leg.direction, title.position="top", barwidth=barwidth, barheight=barheight))
         }
     } else {
         p = ggplot(df, aes(x=ID, y=Value)) +
-            geom_bar(stat="identity", width=0.99, fill=default.fill)
+            geom_bar(stat="identity", width=1, fill=default.fill) #width=0.99
     }
     if (! is.null(splits)) {
         if (!rev) {
-            ymax=max(v)
+            ymax=max(dat.v)
         } else {
-            ymax=-max(v)
+            ymax=-max(dat.v)
         }
          p = p + geom_segment(data=data.frame("splits"=splits), size=split.l.size, colour=splits.col,
              y=0, yend=ymax, aes(x=splits+0.5, xend=splits+0.5))
     }
     p = p +ylab(y.axis.lab)
     p = p + scale_x_discrete(expand=c(0,0))
-    p = p +  theme_grey(base_size = base.size)
-    expon=min(2,floor(log10(max(v))))
-    max.break=(ceiling(max(v) / 10^expon))*(10^expon)
+    p = p +  theme_grey(base_size = base.size) + theme(axis.text=element_text(colour="#696969", size=axis.text.size))
+    expon=min(2,floor(log10(max(dat.v))))
+    max.break=(ceiling(max(dat.v) / 10^expon))*(10^expon)
     if (rev) {
         p = p + scale_y_continuous(trans="reverse", expand=c(0,0),
             breaks=c(0, round(max.break/2), max.break), limits=c(max.break,0))
@@ -439,9 +519,9 @@ gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
             breaks=c(0, round(max.break/2), max.break), limits=c(0,max.break))
     }
     if (x.labs.only) {
-        p = p+theme.only.x(theme_grey(base_size=base.size)) + geom_vline(xintercept=0.5, linetype="dashed")
+        p = p+theme.only.x(theme_grey(base_size=base.size), axis.text.size=axis.text.size) + geom_vline(xintercept=0.5, linetype="dashed")
     } else if (y.labs.only) {
-        p = p+theme.only.y(theme_grey(base_size=base.size)) #+ geom_hline(yintercept=0, linetype="dashed")
+        p = p+theme.only.y(theme_grey(base_size=base.size), axis.text.size=axis.text.size) #+ geom_hline(yintercept=0, linetype="dashed")
     } else if (blank) {
         p = p+theme_dendro()
     }
@@ -451,18 +531,20 @@ gg.barp <- function(v, fix.ord=TRUE, flip=TRUE, rev=TRUE,
     return(p)
 }
 
-## Wrapper function for gg.barp() for use when the vector data is not
-## quantitative, i.e., only "fill.c", rather than "v", is
-## meaningful. Creates a ggplot2 bar plot object where all bars are
-## the same height (called here a "colorstack"). See gg.barp() specs
-## for details.
+## Wrapper function for gg.barp(). Use when (1) the vector of data is
+## categorical or discrete, i.e., only "fill.c", rather than "dat.v",
+## is meaningful, or (2) when a 1D heatmap-type plot is desired,
+## rather than a bar plot, to show continuous numeric data. Creates a
+## ggplot2 bar plot object where all bars are the same height (which
+## we call a "colorstack"). See gg.barp() specs for details.
 gg.colorstack <- function(fill.c,rev=FALSE, x.labs.only=FALSE, y.labs.only=FALSE, blank=TRUE,...) {
-    v=rep(1, length(fill.c))
-    names(v)=names(fill.c)
-    p=gg.barp(v, fill.c=fill.c, rev=rev, blank=blank, x.labs.only=x.labs.only, y.labs.only=y.labs.only,...)
+    dat.v=rep(1, length(fill.c))
+    names(dat.v)=names(fill.c)
+    p=gg.barp(dat.v, fill.c=fill.c, rev=rev, blank=blank, x.labs.only=x.labs.only, y.labs.only=y.labs.only,...)
     p=p+theme(legend.position="bottom")
     return(p)
 }
+
 
 ## Extract legend from a ggplot2 plot object.
 ## https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
@@ -551,11 +633,11 @@ bind.grobs <- function(..., c.bind=TRUE, size="last", widths=NULL, heights=NULL)
 ## first element is the relative height of the title.
 ### plot.title: title for composed plot.
 ## leg.top: Boolean T/F; if T, put legend on top; else on bottom.
-## RETURNS:
-### a ggplot object with composed plot
+### RETURNS:
+## a ggplot object with composed plot
 compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
                                     widths=c(2,10), heights=c(1.5,10),
-                                    plot.title="", leg.top=FALSE) {
+                                    plot.title="", leg.top=FALSE, leg.direction="horizontal") {
     leg.hm=g_legend(gg.hm)
     grob.hm=ggplotGrob(ggspace(
         gg.hm + theme(legend.position="none", axis.text.y = element_blank()),
@@ -586,7 +668,8 @@ compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
         } else {
             heights=c(0,heights)
         }
-    }
+    } ## now heights has length 3, with legend heights in position 2
+
     ## Creating empty ggplot with annotation is an alternative to
     ## calling textGrob below -- tried it to avoid querying graphical
     ## parameters and hence creating empty Rplots.pdf file, but one is
@@ -605,6 +688,7 @@ compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
     return(p)
 }
 
+
 ## Creates ggplot objects for heatmap, barplot, and colorstacks from
 ## given data and then feeds them to composed.gg.hmap.w.barps() to get
 ## a composed plot.
@@ -616,24 +700,31 @@ compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
 ## colorstack.dat.l: NULL or list of vectors for colorstack plots to
 ## be fed individually to gg.colorstack().
 ### colorstack.fill.l: NULL or a list (of same length as
-### colorstack.dat.l) of vectors of colors, each named by the unique
-### entries in the corresponding vector in colorstack.dat.l.
-## leg.title.l: NULL or a list (of same length as colorstack.dat.l) of
-## titles for the legends for the colorstacks.
-### widths: numerical vector giving the relative widths for the plots,
-### in this order: barplot, colorstacks, heatmap; the length of widths
-### should be equal to sum(list(hmap.dat, barp.dat.v,
-### unlist(colorstack.dat.l))!=NULL).
-## heights: numerical vector of length 2 giving the relative heights
-## for the legends versus the plots.
-### plot.title: title for composed plot.
-## leg.top: Boolean T/F; if T, put legend on top; else on bottom.
-### y.labs.only: Boolean T/F; if T, keep the y-axis tick labels for
-### the colorstack plots.
-## split.l.size: width of lines used for splitting rows/columns.
-### splits.col: the color for the row/col split lines.
-## print.plot: Boolean T/F; if T, composed plot is printed as a side
-## effect.
+### colorstack.dat.l) of vectors of colors (some entries of the list
+### may instead be null), each named by the unique entries in the
+### corresponding vector in colorstack.dat.l.
+## discrete.v: NULL or a Boolean T/F vector describing whether each
+## vector in colorstack.dat.l should be plotted as discrete (T) or
+## continuous (F) data. If NULL, assumes all are discrete.
+### leg.title.l: NULL or a list (of same length as colorstack.dat.l)
+### of titles for the legends for the colorstacks.
+## widths: numerical vector giving the relative widths for the plots,
+## in this order: barplot, colorstacks, heatmap; the length of widths
+## should be equal to sum(list(hmap.dat, barp.dat.v,
+## unlist(colorstack.dat.l))!=NULL).
+### heights: numerical vector of length 2 giving the relative heights
+### for the legends versus the plots.
+## plot.title: title for composed plot.
+### leg.top: Boolean T/F; if T, put legend on top; else on bottom.
+## y.labs.only: Boolean T/F; if T, keep the y-axis tick labels for
+## the colorstack plots.
+### split.l.size: width of lines used for splitting rows/columns.
+## splits.col: the color for the row/col split lines.
+### base.size: base font size to use in theme.
+## axis.text.size: the base font size for the axis labels.
+### print.plot: Boolean T/F; if T, composed plot is printed as a side
+### effect.
+## leg.direction: "vertical" or "horizontal"; direction of legends.
 ### ...: Unspecified arguments are passed, along with hmap.dat, to
 ### gg.hmap.via.dendro().
 ## RETURNS:
@@ -644,33 +735,55 @@ compose.gg.hmap.w.barps <- function(gg.hm, gg.barp, gg.colorstack.l=NULL,
 ### creacted by all calls to gg.colorstack().
 create.gg.hmap.w.barps <- function(hmap.dat, barp.dat.v,
                                    colorstack.dat.l=NULL, colorstack.fill.l=NULL,
-                                   leg.title.l=NULL,
+                                   discrete.v=NULL, leg.title.l=NULL,
                                    widths=c(2,10), heights=c(1,10),
                                    plot.title="", leg.top=FALSE,
-                                   y.labs.only=FALSE,
+                                   y.labs.only=FALSE, leg.direction="horizontal",
                                    splits.col="black",split.l.size=1,
-                                   print.plot=FALSE, ...) {
-    p.hm.l=gg.hmap.via.dendro(dat=hmap.dat, ...)
+                                   print.plot=FALSE, base.size=14, axis.text.size=14,...) {
+    p.hm.l=gg.hmap.via.dendro(dat=hmap.dat, base.size=base.size, axis.text.size=axis.text.size, split.l.size=split.l.size, leg.direction=leg.direction,...)
     if (!is.null(barp.dat.v)) {
-        p.barp=gg.barp(barp.dat.v[p.hm.l$ord.r], x.labs.only=TRUE, splits=p.hm.l$r.splits, splits.col=splits.col, split.l.size=split.l.size)
+        p.barp=gg.barp(barp.dat.v[p.hm.l$ord.r], x.labs.only=TRUE, splits=p.hm.l$r.splits, splits.col=splits.col, split.l.size=split.l.size,
+            base.size=base.size, axis.text.size=axis.text.size)
     } else {
         p.barp=NULL
     }
     p.colorstack.l=NULL
     if (!is.null(colorstack.dat.l)) {
+        if (is.null(discrete.v)) {
+            discrete.v=rep(TRUE, length(colorstack.dat.l))
+        }
         p.colorstack.l=list()
         for (i in 1:length(colorstack.dat.l)) {
             p.colorstack.l[[i]]=gg.colorstack(colorstack.dat.l[[i]][p.hm.l$ord.r],
-                              cols=colorstack.fill.l[[i]], y.labs.only=y.labs.only, leg.title=leg.title.l[[i]],
-                              splits=p.hm.l$r.splits, splits.col=splits.col, split.l.size=split.l.size)
+                              cols=colorstack.fill.l[[i]], discrete=discrete.v[i],
+                              y.labs.only=y.labs.only, leg.title=leg.title.l[[i]], leg.direction=leg.direction,
+                              splits=p.hm.l$r.splits, splits.col=splits.col, split.l.size=split.l.size, base.size=base.size, axis.text.size=axis.text.size)
         }
     }
     p.compo=compose.gg.hmap.w.barps(p.hm.l$gg.hm, p.barp, gg.colorstack.l=p.colorstack.l,
-        widths=widths, heights=heights, plot.title=plot.title, leg.top=leg.top)
+        widths=widths, heights=heights, plot.title=plot.title, leg.top=leg.top, leg.direction=leg.direction)
     if(print.plot) {
         print(p.compo)
     }
     return(list("p.compo"=p.compo, "p.hm.l"=p.hm.l, "p.barp"=p.barp, "p.colorstack.l"=p.colorstack.l))
 }
 
-
+## Annotate a plot, in particular, outside the plot area.
+### ARGS:
+## gg.p: ggplot plot object.
+### txt: text for annotation
+## x/y: x/y coordinates for annotation; (0,0) is bottom left.
+### hjust/vjust: horizontal and vertical justification of text.
+## fontface: style of font (e.g., "italic", "plain", "bold").
+### fontsize: size of font.
+## col: color of text.
+### ...: Unspecified arguments are passed to textGrob().
+## RETURNS:
+### the annotated plot (for printing)
+plot.w.footnote <- function(gg.p, txt,
+                            x=0, y=0, hjust=-0.1, vjust=-0.5,
+                            fontface="italic", fontsize=11, col="#696969",...) {
+    return(arrangeGrob(gg.p, sub = textGrob(txt, x=x, y=y, hjust=hjust, vjust=vjust,
+                                 gp = gpar(fontface = fontface, fontsize = fontsize, col=col)),...))
+}
