@@ -3,11 +3,9 @@
 ## Functions for implementing better heatmaps that are composed with
 ## row-aligned bar plots. In particular, see create.gg.hmap.w.barps().
 
-## GIT UPDATE COMPOHEATMAP.
-
-## ADD FUNCTIONALITY TO BE ABLE TO BIND COLORSTACKS HORIZONTALLY, OR
-## NOTE WHY THIS DOESN'T WORK (I MAY HAVE TRIED AND FAILED IN THE
-## PAST).
+## NOTE FOR FUTURE: PLAN TO ADD FUNCTIONALITY TO BE ABLE TO BIND
+## COLORSTACKS AND HEATMAP HORIZONTALLY, OR WILL EXPLAIN WHY THIS
+## DOESN'T WORK (I MAY HAVE TRIED AND FAILED IN THE PAST).
 
 library("ggplot2")
 library("reshape2") # for melt
